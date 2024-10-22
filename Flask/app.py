@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, render_template
 from paho.mqtt.client import Client
 import cv2
 import numpy as np
@@ -10,20 +10,34 @@ import base64
 
 app = Flask(__name__)
 IMAGE_FOLDER = './uploads'
+IMAGE_ADD_FACE_FOLDER = './uploaded-faces'
 if not os.path.exists(IMAGE_FOLDER):
     os.makedirs(IMAGE_FOLDER)
+if not os.path.exists(IMAGE_ADD_FACE_FOLDER):
+    os.makedirs(IMAGE_ADD_FACE_FOLDER)
 
 # Cargo el archivo del algoritmo haarcascade en la variable alg
-alg = "/content/haarcascade_frontalface_default.xml"
+alg = "haarcascade_frontalface_default.xml"
 # Lo paso a OpenCV
 haar_cascade = cv2.CascadeClassifier(alg)
 
+# Funcion para agregar una nueva cara a la base de datos
 @app.route('/add_face', methods=['POST'])
 def add_face():
+    # Me fijo si se selecciono una imagen
+    if 'image' not in request.files:
+        return jsonify({"error": "No se seleccionó ninguna imagen."}), 400
+
     # Cargo la imagen en la variable image_file
     image_file = request.files['image']
+    if image_file.filename == '':
+        return jsonify({"error": "Archivo vacío."}), 400
+
+    image_path = os.path.join(IMAGE_ADD_FACE_FOLDER, image_file.filename)
+    image_file.save(image_path)
+
     # Leo la imagen
-    img = cv2.imread(image_file, 0)
+    img = cv2.imread(image_path, 0)
     # Creo una version en blanco y negro de la imagen
     gray_img = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
     # Detecto las caras
@@ -33,21 +47,17 @@ def add_face():
     # Imprimo el numero de caras detectadas
     print(len(faces))
 
-    i = 0
     # Por cada cara detectada
     for x, y, w, h in faces:
         # crop the image to select only the face
         cropped_image = img[y: y + h, x: x + w]
-        # loading the target image path into target_file_name variable  - replace <INSERT YOUR TARGET IMAGE NAME HERE> with the path to your target image
-        target_file_name = 'temp-faces/' + str(i) + '.jpg'
         cv2.imwrite(
-            target_file_name,
+            image_file.filename,
             cropped_image,
         )
-        i = i + 1
 
     # Variable de entorno para ocultar url
-    db_url = os.getenv("DATABASE_URL")
+    #db_url = os.getenv("DATABASE_URL")
     # Conexion con la base de datos
     conn = psycopg2.connect(db_url)
 
@@ -62,6 +72,8 @@ def add_face():
         cur.execute("INSERT INTO pictures values (%s,%s)", (filename, embedding[0].tolist()))
         print(filename)
     conn.commit()
+
+    return jsonify({"message": f"{image_file.filename} agregada correctamente como cara conocida."})
 
 def on_connect(client, userdata, flags, rc):
     print(f"Conectado al broker MQTT con código {rc}")
@@ -84,6 +96,7 @@ def on_message(client, userdata, msg):
         f.write(image_bytes)
 
     print(f'Imagen guardada en: {image_path}')
+    '''
     # ----------------------------------------------------------
     # Comienzo de procesamiento y deteccion de cara
     # Abro la imagen
@@ -121,17 +134,18 @@ def on_message(client, userdata, msg):
     else:
         print('No se encontró ninguna coincidencia.')
     cur.close()
+    '''
 
 client = Client()
 client.on_connect = on_connect
 client.on_message = on_message
 
 client.connect("127.0.0.1", 1884, 60)
-client.loop_forever()
+client.loop_start()
 
 @app.route('/')
-def hello_world():  # put application's code here
-    return 'Hello World!'
+def index():  # put application's code here
+    return render_template('index.html')
 
 
 if __name__ == '__main__':

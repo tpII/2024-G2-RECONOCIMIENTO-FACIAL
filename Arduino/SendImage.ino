@@ -2,6 +2,7 @@
 #include "esp_camera.h"
 #include <WiFi.h>
 #include <PubSubClient.h>
+#include "arduino_secrets.h"
 
 #define PWDN_GPIO_NUM     32
 #define RESET_GPIO_NUM    -1
@@ -50,9 +51,9 @@ static camera_config_t camera_config = {
     .ledc_channel = LEDC_CHANNEL_0,
 
     .pixel_format = PIXFORMAT_JPEG, //YUV422,GRAYSCALE,RGB565,JPEG
-    .frame_size = FRAMESIZE_QVGA,    //QQVGA-UXGA Do not use sizes above QVGA when not JPEG
+    .frame_size = FRAMESIZE_VGA,    //QQVGA-UXGA Do not use sizes above QVGA when not JPEG
 
-    .jpeg_quality = 12, //0-63 lower number means higher quality
+    .jpeg_quality = 10, //0-63 lower number means higher quality
     .fb_count = 1,       //if more than one, i2s runs in continuous mode. Use only with JPEG
     .fb_location = CAMERA_FB_IN_PSRAM,
     .grab_mode = CAMERA_GRAB_WHEN_EMPTY,
@@ -142,7 +143,6 @@ String sendImage() {
     client.endPublish();
     
     esp_camera_fb_return(fb);
-    
     return "Foto enviada";
   }
   esp_camera_fb_return(fb);
@@ -155,5 +155,5 @@ void loop() {
   }
   client.loop();
   Serial.println(sendImage());
-  delay(60000);  // Enviar cada 10 segundos, reducir de 1 minuto para pruebas posteriores
+  delay(10000);  // Enviar cada 10 segundos, reducir de 1 minuto para pruebas posteriores
 }
