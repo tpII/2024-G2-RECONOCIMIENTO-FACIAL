@@ -53,7 +53,7 @@ static camera_config_t camera_config = {
     .pixel_format = PIXFORMAT_JPEG, //YUV422,GRAYSCALE,RGB565,JPEG
     .frame_size = FRAMESIZE_VGA,    //QQVGA-UXGA Do not use sizes above QVGA when not JPEG
 
-    .jpeg_quality = 10, //0-63 lower number means higher quality
+    .jpeg_quality = 5, //0-63 lower number means higher quality
     .fb_count = 1,       //if more than one, i2s runs in continuous mode. Use only with JPEG
     .fb_location = CAMERA_FB_IN_PSRAM,
     .grab_mode = CAMERA_GRAB_WHEN_EMPTY,
@@ -70,7 +70,9 @@ PubSubClient client(wifiClient);
 void setup() {
   Serial.begin(115200);
   connectWiFi();
+  delay(1000);
   setupMQTT();
+  delay(1000);
   startCamera();
 }
 
@@ -100,6 +102,10 @@ void startCamera() {
   if (esp_camera_init(&camera_config) != ESP_OK) {
     Serial.println("Error al inicializar la cámara");
   } else {
+    sensor_t *s = esp_camera_sensor_get();
+    if (s != NULL) {
+      s->set_brightness(s, 1);   // Brillo: -2 a 2
+    }
     Serial.println("Cámara inicializada correctamente");
   }
 }

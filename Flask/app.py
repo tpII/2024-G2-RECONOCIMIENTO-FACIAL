@@ -7,8 +7,12 @@ from PIL import Image
 import psycopg2
 import os
 import base64
+from dotenv import load_dotenv
 
 app = Flask(__name__)
+
+load_dotenv()
+
 IMAGE_FOLDER = './uploads'
 IMAGE_ADD_FACE_FOLDER = './uploaded-faces'
 if not os.path.exists(IMAGE_FOLDER):
@@ -57,7 +61,7 @@ def add_face():
         )
 
     # Variable de entorno para ocultar url
-    #db_url = os.getenv("DATABASE_URL")
+    db_url = os.getenv("DATABASE_URL")
     # Conexion con la base de datos
     conn = psycopg2.connect(db_url)
 
@@ -91,50 +95,72 @@ def on_message(client, userdata, msg):
     image_bytes = base64.b64decode(image_data)
 
     # Guardo la imagen en un archivo
-    image_path = os.path.join(IMAGE_FOLDER, 'received_photo.jpg')
+    image_path = os.path.join(IMAGE_FOLDER, 'received_photo.jpeg')
     with open(image_path, 'wb') as f:
         f.write(image_bytes)
 
     print(f'Imagen guardada en: {image_path}')
-    '''
-    # ----------------------------------------------------------
-    # Comienzo de procesamiento y deteccion de cara
-    # Abro la imagen
-    img = Image.open(image_path)
-    # Cargo los `imgbeddings`
-    ibed = imgbeddings()
-    # Calculo los embeddings
-    embedding = ibed.to_embeddings(img)
 
-    # Conexion con la base de datos
-    db_url = os.getenv("DATABASE_URL")
-    conn = psycopg2.connect(db_url)
-
-    cur = conn.cursor()
-    string_representation = "[" + ",".join(str(x) for x in embedding[0].tolist()) + "]"
-    cur.execute(
-        """
-        SELECT embedding <=> %s AS distance
-        FROM pictures
-        ORDER BY distance
-        LIMIT 1;
-        """,
-        (string_representation,)
+    # -------- TEST DE RECORTE DE IMAGEN PARA MEJORAR INFERENCIA ------
+    # Leo la imagen
+    img = cv2.imread(image_path, 0)
+    # Creo una version en blanco y negro de la imagen
+    gray_img = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
+    # Detecto las caras
+    faces = haar_cascade.detectMultiScale(
+        gray_img, scaleFactor=1.05, minNeighbors=5, minSize=(50, 50)
     )
-    row = cur.fetchone()
+    # Imprimo el numero de caras detectadas
+    print(len(faces))
 
-    if row:
-        distancia = row[0]  # Distancia devuelta desde la query
+    if(len(faces) >= 1):
 
-        THRESHOLD = 0.17
-        if distancia <= THRESHOLD:
-            print(f'Conocida (Distancia: {distancia})')
-        else:
-            print(f'Desconocida (Distancia: {distancia})')
+        # Por cada cara detectada
+        for x, y, w, h in faces:
+            # crop the image to select only the face
+            cropped_image = img[y: y + h, x: x + w]
+            cv2.imwrite(
+                "uploads/received_photo_face.jpeg",
+                cropped_image,
+            )
+
+        # ----------------------------------------------------------
+        # Comienzo de procesamiento y deteccion de cara
+        # Abro la imagen
+        img = Image.open("uploads/received_photo_face.jpeg")
+        # Cargo los `imgbeddings`
+        ibed = imgbeddings()
+        # Calculo los embeddings
+        embedding = ibed.to_embeddings(img)
+
+        # Conexion con la base de datos
+        db_url = os.getenv("DATABASE_URL")
+        conn = psycopg2.connect(db_url)
+
+        cur = conn.cursor()
+        string_representation = "[" + ",".join(str(x) for x in embedding[0].tolist()) + "]"
+        cur.execute(
+            """
+            SELECT embedding <=> %s AS distance
+            FROM pictures
+            ORDER BY distance
+            LIMIT 1;
+            """,
+            (string_representation,)
+        )
+        row = cur.fetchone()
+
+        if row:
+            distancia = row[0]  # Distancia devuelta desde la query
+
+            THRESHOLD = 0.17
+            if distancia <= THRESHOLD:
+                print(f'Conocida (Distancia: {distancia})')
+            else:
+                print(f'Desconocida (Distancia: {distancia})')
+        cur.close()
     else:
-        print('No se encontró ninguna coincidencia.')
-    cur.close()
-    '''
+        print("No se detectaron caras")
 
 client = Client()
 client.on_connect = on_connect
