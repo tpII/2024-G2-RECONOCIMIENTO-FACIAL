@@ -98,6 +98,30 @@ void setupMQTT() {
   }
 }
 
+void reconnect() {
+  // Loop until we're reconnected
+  while (!client.connected()) {
+    Serial.print("Attempting MQTT connection...");
+    // Create a random client ID
+    String clientId = "ESP32-";
+    clientId += String(random(0xffff), HEX);
+    // Attempt to connect
+    if (client.connect(clientId.c_str())) {
+      Serial.println("connected");
+      // Once connected, publish an announcement...
+      //client.publish(MQTT_PUBLISH_TOPIC, "hello world");
+      // ... and resubscribe
+      client.subscribe(mqttTopic);
+    } else {
+      Serial.print("failed, rc=");
+      Serial.print(client.state());
+      Serial.println(" try again in 5 seconds");
+      // Wait 5 seconds before retrying
+      delay(5000);
+    }
+  }
+}
+
 void startCamera() {
   if (esp_camera_init(&camera_config) != ESP_OK) {
     Serial.println("Error al inicializar la cámara");
@@ -106,58 +130,68 @@ void startCamera() {
     if (s != NULL) {
       s->set_brightness(s, 1);   // Brillo: -2 a 2
     }
+    //s->set_framesize(s, FRAMESIZE_QVGA);
     Serial.println("Cámara inicializada correctamente");
   }
 }
 
 String sendImage() {
-  camera_fb_t * fb = NULL;
-  fb = esp_camera_fb_get();  
-  if(!fb) {
+  camera_fb_t *fb = esp_camera_fb_get();
+  if (!fb) {
     Serial.println("Camera capture failed");
     return "Camera capture failed";
-  }  
-
-  char *input = (char *)fb->buf;
-  char output[base64_enc_len(3)];
-  String imageFile = "data:image/jpeg;base64,";
-  for (int i=0;i<fb->len;i++) {
-    base64_encode(output, (input++), 3);
-    if (i%3==0) imageFile += String(output);
   }
-  int fbLen = imageFile.length();
+
+  // Crear un buffer estático grande para la codificación Base64
+  const size_t maxBase64Size = (4 * ((fb->len + 2) / 3)) + 1; // Tamaño máximo Base64
+  char *base64Image = (char *)malloc(maxBase64Size);
+  if (!base64Image) {
+    Serial.println("Fallo al alocar memoria para Base64");
+    esp_camera_fb_return(fb);
+    return "Fallo al alocar memoria";
+  }
+
+  // Codificar la imagen a Base64
+  size_t encodedLen = base64_encode(base64Image, (char *)fb->buf, fb->len);
+
+  // Crear el encabezado "data:image/jpeg;base64,"
+  const char *header = "data:image/jpeg;base64,";
+  size_t headerLen = strlen(header);
+
+  // Calcular el tamaño total del mensaje
+  size_t totalLen = headerLen + encodedLen;
+
+  esp_camera_fb_return(fb);
   
   String clientId = "ESP32-";
   clientId += String(random(0xffff), HEX);
   if (client.connect(clientId.c_str())) {
     
-    client.beginPublish(mqttTopic, fbLen, true);
+    client.beginPublish(mqttTopic, totalLen, true);
 
-    String str = "";
-    for (size_t n=0;n<fbLen;n=n+2048) {
-      if (n+2048<fbLen) {
-        str = imageFile.substring(n, n+2048);
-        client.write((uint8_t*)str.c_str(), 2048);
-      }
-      else if (fbLen%2048>0) {
-        size_t remainder = fbLen%2048;
-        str = imageFile.substring(n, n+remainder);
-        client.write((uint8_t*)str.c_str(), remainder);
-      }
-    }  
+    // Enviar el encabezado primero
+    client.write((uint8_t *)header, headerLen);
+
+    // Enviar la imagen codificada en partes de 2048 bytes
+    for (size_t i = 0; i < encodedLen; i += 2048) {
+      size_t chunkSize = (i + 2048 < encodedLen) ? 2048 : (encodedLen - i);
+      client.write((uint8_t *)(base64Image + i), chunkSize);
+    }
     
     client.endPublish();
     
-    esp_camera_fb_return(fb);
+    free(base64Image);
+    //esp_camera_fb_return(fb);
     return "Foto enviada";
   }
-  esp_camera_fb_return(fb);
+  free(base64Image);
+  //esp_camera_fb_return(fb);
   return "failed, rc="+client.state();
 }
 
 void loop() {
   if (!client.connected()) {
-    setupMQTT();
+    reconnect();
   }
   client.loop();
   Serial.println(sendImage());

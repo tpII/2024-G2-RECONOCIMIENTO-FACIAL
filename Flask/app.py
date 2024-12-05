@@ -86,7 +86,11 @@ def on_connect(client, userdata, flags, rc):
 
 def on_message(client, userdata, msg):
     # Decodifico el mensaje en base64
-    image_data = msg.payload.decode('utf-8')  # Decodificamos el payload de bytes a string
+    try:
+        image_data = msg.payload.decode('utf-8')  # Decodificamos el payload de bytes a string
+    except UnicodeDecodeError as e:
+        print(f"Error al decodificar mensaje UTF-8: {e}")
+        return
 
     # Verifico si el mensaje contiene un prefijo de Base64 'data:image/jpeg;base64,'
     if image_data.startswith('data:image/jpeg;base64,'):
