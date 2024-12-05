@@ -1,15 +1,38 @@
 <!DOCTYPE html>
 <html lang="en">
+<link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Panel de seguridad</title>
 </head>
 <body>
-    <h1>Agregar una nueva foto a la base de datos</h1>
-    <form action="/add_face" method="POST" enctype="multipart/form-data">
-        <input type="file" name="image" accept="image/*" required>
-        <button type="submit">Subir Foto</button>
-    </form>
+<div class="header">
+    <h1>Panel de seguridad</h1>
+</div>
+<div class="row1-container">
+    <div class="box box-down cyan">
+        <h2>Agregar una nueva foto a la base de datos</h2>
+        <div>
+            <form action="/add_face" method="POST" enctype="multipart/form-data">
+                <input type="file" name="image" accept="image/*" required>
+                <button type="submit">Subir Foto</button>
+            </form>
+        </div>
+    </div>
+    <div class="box box-down blue">
+        <h2>Notificaciones</h2>
+        <a href="/notificaciones" style="position:relative;">
+            Ver notificaciones
+            {% if unseen_count > 0 %}
+            <span style="position:absolute; top:-5px; right:-10px;
+                         background:red; color:white;
+                         padding:5px; border-radius:50%;">
+                {{ unseen_count }}
+            </span>
+            {% endif %}
+        </a>
+    </div>
+</div>
 </body>
 </html>

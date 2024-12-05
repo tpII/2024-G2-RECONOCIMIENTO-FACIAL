@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="en">
+<link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Notificaciones</title>
+</head>
+<body>
+    <div class="header">
+        <h1>Notificaciones</h1>
+    </div>
+    {% if notifications %}
+        <div class="row2-container">
+            {% for picture, timestamp in notifications %}
+            <div class="box box-down blue" style="display: inline-grid; width: auto;">
+                <img src="{{ picture }}" alt="Foto desconocida" style="width:200px; height:auto; justify-self: center">
+                <p style="text-align: center">Fecha y hora: {{ timestamp }}</p>
+            </div>
+            {% endfor %}
+        </div>
+    {% else %}
+        <p>No hay notificaciones.</p>
+    {% endif %}
+</body>
+</html>

@@ -8,6 +8,7 @@ import psycopg2
 import os
 import base64
 from dotenv import load_dotenv
+import time
 
 app = Flask(__name__)
 
@@ -46,7 +47,7 @@ def add_face():
     gray_img = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
     # Detecto las caras
     faces = haar_cascade.detectMultiScale(
-        gray_img, scaleFactor=1.05, minNeighbors=5, minSize=(50, 50)
+        gray_img, scaleFactor=1.05, minNeighbors=5, minSize=(75, 75)
     )
     # Imprimo el numero de caras detectadas
     print(len(faces))
@@ -56,7 +57,7 @@ def add_face():
         # crop the image to select only the face
         cropped_image = img[y: y + h, x: x + w]
         cv2.imwrite(
-            image_file.filename,
+            'temp-faces/' + image_file.filename,
             cropped_image,
         )
 
@@ -96,6 +97,14 @@ def on_message(client, userdata, msg):
 
     # Guardo la imagen en un archivo
     image_path = os.path.join(IMAGE_FOLDER, 'received_photo.jpeg')
+
+    # Verificar tiempo de vida del archivo
+    #if os.path.exists(image_path):
+    #    last_modified = os.path.getmtime(image_path)
+    #    if time.time() - last_modified > 30:  # Si el archivo tiene más de 30 segundos, omitir
+    #        print("El archivo tiene más de 30 segundos, omitiendo procesamiento...")
+    #        return
+
     with open(image_path, 'wb') as f:
         f.write(image_bytes)
 
@@ -108,7 +117,7 @@ def on_message(client, userdata, msg):
     gray_img = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
     # Detecto las caras
     faces = haar_cascade.detectMultiScale(
-        gray_img, scaleFactor=1.05, minNeighbors=5, minSize=(50, 50)
+        gray_img, scaleFactor=1.05, minNeighbors=5, minSize=(75, 75)
     )
     # Imprimo el numero de caras detectadas
     print(len(faces))
@@ -158,9 +167,49 @@ def on_message(client, userdata, msg):
                 print(f'Conocida (Distancia: {distancia})')
             else:
                 print(f'Desconocida (Distancia: {distancia})')
+                # Guardar foto desconocida en la base de datos
+                with open("uploads/received_photo_face.jpeg", "rb") as img_file:
+                    encoded_image = base64.b64encode(img_file.read()).decode('utf-8')
+                    image_data = f"data:image/jpeg;base64,{encoded_image}"
+
+                cur.execute("""
+                        INSERT INTO pictures_log (picture)
+                        VALUES (%s)
+                    """, (image_data,))
+                conn.commit()
         cur.close()
     else:
         print("No se detectaron caras")
+
+
+@app.route('/notificaciones')
+def notificaciones():
+    db_url = os.getenv("DATABASE_URL")
+    conn = psycopg2.connect(db_url)
+    cur = conn.cursor()
+
+    # Obtener fotos desconocidas
+    cur.execute("""
+        SELECT picture, timestamp
+        FROM pictures_log
+        ORDER BY timestamp DESC
+    """)
+    notifications = cur.fetchall()
+
+    cur.execute("""
+            UPDATE pictures_log
+            SET leido = TRUE
+            WHERE leido = FALSE
+        """)
+    conn.commit()
+
+    # Borrar despues de 7 dias (opcional)
+    #cur.execute("DELETE FROM pictures_log")
+    #conn.commit()/
+
+    cur.close()
+    conn.close()
+    return render_template('notificaciones.html', notifications=notifications)
 
 client = Client()
 client.on_connect = on_connect
@@ -171,7 +220,21 @@ client.loop_start()
 
 @app.route('/')
 def index():  # put application's code here
-    return render_template('index.html')
+    db_url = os.getenv("DATABASE_URL")
+    conn = psycopg2.connect(db_url)
+    cur = conn.cursor()
+
+    # Contar notificaciones no vistas
+    cur.execute("""
+        SELECT COUNT(*)
+        FROM pictures_log
+        WHERE leido = FALSE
+    """)
+    unseen_count = cur.fetchone()[0]
+
+    cur.close()
+    conn.close()
+    return render_template('index.html', unseen_count=unseen_count)
 
 
 if __name__ == '__main__':
