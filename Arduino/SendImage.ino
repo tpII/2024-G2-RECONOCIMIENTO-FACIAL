@@ -4,6 +4,8 @@
 #include <PubSubClient.h>
 #include "arduino_secrets.h"
 
+#define PIR_PIN 14
+
 #define PWDN_GPIO_NUM     32
 #define RESET_GPIO_NUM    -1
 #define XCLK_GPIO_NUM      0
@@ -69,6 +71,7 @@ PubSubClient client(wifiClient);
 
 void setup() {
   Serial.begin(115200);
+  pinMode(PIR_PIN, INPUT_PULLUP); 
   connectWiFi();
   delay(1000);
   setupMQTT();
@@ -194,6 +197,12 @@ void loop() {
     reconnect();
   }
   client.loop();
-  Serial.println(sendImage());
-  delay(10000);  // Enviar cada 10 segundos, reducir de 1 minuto para pruebas posteriores
+  int pirState = digitalRead(PIR_PIN);
+  if (pirState == LOW) {
+    delay(20);
+    if (digitalRead(PIR_PIN) == LOW) {
+      Serial.println(sendImage());
+    }
+  }
+  delay(100);  // Enviar cada 10 segundos, reducir de 1 minuto para pruebas posteriores
 }
