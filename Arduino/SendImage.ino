@@ -170,7 +170,7 @@ String sendImage() {
   clientId += String(random(0xffff), HEX);
   if (client.connect(clientId.c_str())) {
     
-    client.beginPublish(mqttTopic, totalLen, true);
+    client.beginPublish(mqttTopic, totalLen, false);
 
     // Enviar el encabezado primero
     client.write((uint8_t *)header, headerLen);
@@ -197,6 +197,10 @@ void loop() {
     reconnect();
   }
   client.loop();
+  camera_fb_t *fb = esp_camera_fb_get();
+  if (fb) {
+      esp_camera_fb_return(fb);  // Libera cualquier contenido residual
+  }
   int pirState = digitalRead(PIR_PIN);
   if (pirState == LOW) {
     delay(20);

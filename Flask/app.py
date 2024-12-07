@@ -66,16 +66,15 @@ def add_face():
     # Conexion con la base de datos
     conn = psycopg2.connect(db_url)
 
-    for filename in os.listdir("temp-faces"):
-        # Abro la imagen
-        img = Image.open("temp-faces/" + filename)
-        # Cargo los `imgbeddings`
-        ibed = imgbeddings()
-        # Calculo los embeddings
-        embedding = ibed.to_embeddings(img)
-        cur = conn.cursor()
-        cur.execute("INSERT INTO pictures values (%s,%s)", (filename, embedding[0].tolist()))
-        print(filename)
+    # Abro la imagen
+    img = Image.open("temp-faces/" + image_file.filename)
+    # Cargo los `imgbeddings`
+    ibed = imgbeddings()
+    # Calculo los embeddings
+    embedding = ibed.to_embeddings(img)
+    cur = conn.cursor()
+    cur.execute("INSERT INTO pictures values (%s,%s)", (image_file.filename, embedding[0].tolist()))
+    print(image_file.filename)
     conn.commit()
 
     return jsonify({"message": f"{image_file.filename} agregada correctamente como cara conocida."})
@@ -92,7 +91,6 @@ def on_message(client, userdata, msg):
         print(f"Error al decodificar mensaje UTF-8: {e}")
         return
 
-    # Verifico si el mensaje contiene un prefijo de Base64 'data:image/jpeg;base64,'
     if image_data.startswith('data:image/jpeg;base64,'):
         image_data = image_data.replace('data:image/jpeg;base64,', '')
 
@@ -102,12 +100,16 @@ def on_message(client, userdata, msg):
     # Guardo la imagen en un archivo
     image_path = os.path.join(IMAGE_FOLDER, 'received_photo.jpeg')
 
+    #print("Tiempo de vida: ", time.time() - os.path.getmtime(image_path))
+
     # Verificar tiempo de vida del archivo
     #if os.path.exists(image_path):
     #    last_modified = os.path.getmtime(image_path)
     #    if time.time() - last_modified > 30:  # Si el archivo tiene más de 30 segundos, omitir
     #        print("El archivo tiene más de 30 segundos, omitiendo procesamiento...")
     #        return
+    if os.path.exists(image_path):
+        os.remove(image_path)
 
     with open(image_path, 'wb') as f:
         f.write(image_bytes)
@@ -166,7 +168,7 @@ def on_message(client, userdata, msg):
         if row:
             distancia = row[0]  # Distancia devuelta desde la query
 
-            THRESHOLD = 0.17
+            THRESHOLD = 0.11
             if distancia <= THRESHOLD:
                 print(f'Conocida (Distancia: {distancia})')
             else:
