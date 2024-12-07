@@ -7,6 +7,13 @@
     <title>Notificaciones</title>
 </head>
 <body>
+    <script src="https://cdn.socket.io/4.0.0/socket.io.min.js"></script>
+    <script>
+        const socket = io();
+        socket.on('new_face_detected', () => {
+            location.reload(); // Recarga la página actual
+        });
+    </script>
     <div class="header">
         <h1>Notificaciones</h1>
     </div>

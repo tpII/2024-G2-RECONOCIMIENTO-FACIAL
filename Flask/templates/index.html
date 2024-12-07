@@ -1,19 +1,26 @@
 <!DOCTYPE html>
 <html lang="en">
 <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
-<script>
-    window.addEventListener('pageshow', function(event) {
-        if (event.persisted) {
-            location.reload();  // Forzar recarga al volver
-        }
-    });
-</script>
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Panel de seguridad</title>
 </head>
 <body>
+<script>
+    window.addEventListener('pageshow', function(event) {
+        if (event.persisted || performance.getEntriesByType("navigation")[0].type === "back_forward") {
+            location.reload(); // Forzar recarga al volver
+        }
+    });
+</script>
+<script src="https://cdn.socket.io/4.0.0/socket.io.min.js"></script>
+<script>
+    const socket = io();
+    socket.on('new_face_detected', () => {
+        location.reload(); // Recarga la página actual
+    });
+</script>
 <div class="header">
     <h1>Panel de seguridad</h1>
 </div>
@@ -26,6 +33,17 @@
                 <button type="submit">Subir Foto</button>
             </form>
         </div>
+        {% with messages = get_flashed_messages(with_categories=True) %}
+          {% if messages %}
+            <div class="flash-messages">
+              {% for category, message in messages %}
+                <div class="alert alert-{{ category }}">
+                  {{ message }}
+                </div>
+              {% endfor %}
+            </div>
+          {% endif %}
+        {% endwith %}
     </div>
     <div class="box box-down blue">
         <h2>Notificaciones</h2>

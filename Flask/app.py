@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify, render_template
+from flask import Flask, request, jsonify, render_template, flash, redirect, url_for
 from paho.mqtt.client import Client
 import cv2
 import numpy as np
@@ -8,9 +8,11 @@ import psycopg2
 import os
 import base64
 from dotenv import load_dotenv
-import time
+from flask_socketio import SocketIO
 
 app = Flask(__name__)
+socketio = SocketIO(app)
+app.secret_key = b'_5#y2L"F4Q8z\n\xec]/'
 
 load_dotenv()
 
@@ -31,12 +33,14 @@ haar_cascade = cv2.CascadeClassifier(alg)
 def add_face():
     # Me fijo si se selecciono una imagen
     if 'image' not in request.files:
-        return jsonify({"error": "No se seleccionó ninguna imagen."}), 400
+        flash("No se seleccionó ninguna imagen.", "error")
+        return redirect(url_for('index'))
 
     # Cargo la imagen en la variable image_file
     image_file = request.files['image']
     if image_file.filename == '':
-        return jsonify({"error": "Archivo vacío."}), 400
+        flash("Archivo vacío.", "error")
+        return redirect(url_for('index'))
 
     image_path = os.path.join(IMAGE_ADD_FACE_FOLDER, image_file.filename)
     image_file.save(image_path)
@@ -77,7 +81,8 @@ def add_face():
     print(image_file.filename)
     conn.commit()
 
-    return jsonify({"message": f"{image_file.filename} agregada correctamente como cara conocida."})
+    flash(f"{image_file.filename} agregada correctamente como cara conocida.", "success")
+    return redirect(url_for('index'))
 
 def on_connect(client, userdata, flags, rc):
     print(f"Conectado al broker MQTT con código {rc}")
@@ -183,6 +188,7 @@ def on_message(client, userdata, msg):
                         VALUES (%s)
                     """, (image_data,))
                 conn.commit()
+                socketio.emit('new_face_detected')
         cur.close()
     else:
         print("No se detectaron caras")
@@ -244,4 +250,4 @@ def index():  # put application's code here
 
 
 if __name__ == '__main__':
-    app.run()
+    socketio.run(app, debug=True)
