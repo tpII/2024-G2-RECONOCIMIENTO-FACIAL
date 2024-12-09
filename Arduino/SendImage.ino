@@ -1,3 +1,27 @@
+/*
+setup()
+Configura los componentes iniciales del ESP32, incluyendo la conexión al Wi-Fi, la configuración del cliente MQTT, la inicialización de la cámara y el pin del sensor PIR.
+
+connectWiFi()
+Conecta el ESP32 a una red Wi-Fi utilizando las credenciales definidas (ssid y password). Reintenta hasta establecer la conexión.
+
+setupMQTT()
+Configura la conexión al servidor MQTT especificando la dirección (mqttServer) y el puerto (mqttPort). Reintenta la conexión si no es exitosa.
+
+reconnect()
+Asegura que el cliente MQTT esté conectado. Si no lo está, intenta reconectarse, suscribiéndose al tópico especificado.
+
+startCamera()
+Inicializa la cámara conectada al ESP32 utilizando la configuración especificada en camera_config. Si la inicialización es exitosa, ajusta parámetros como el brillo.
+
+sendImage()
+Captura una imagen utilizando la cámara, la codifica en formato Base64 y la envía al servidor MQTT en segmentos. Maneja errores de captura y memoria.
+
+loop()
+Verifica la conexión MQTT en cada iteración y envía imágenes al detectar la señal del botón presionado. También libera cualquier buffer de imagen residual.
+
+*/
+
 #include <Base64.h>
 #include "esp_camera.h"
 #include <WiFi.h>

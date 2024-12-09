@@ -1,3 +1,21 @@
+"""
+add_face()
+Permite cargar una imagen desde un formulario web, detectar rostros en ella, y agregar la información de los embeddings (representación numérica del rostro) a una base de datos.
+
+on_connect(client, userdata, flags, rc)
+Se ejecuta cuando el cliente MQTT se conecta al broker. Suscribe al cliente al tópico definido para recibir datos de imágenes de la cámara.
+
+on_message(client, userdata, msg)
+Maneja los mensajes recibidos a través del tópico MQTT. Decodifica las imágenes recibidas, detecta rostros en ellas, y compara los embeddings generados con los registros almacenados en la base de datos para determinar si la persona es conocida o desconocida.
+
+notificaciones()
+Recupera notificaciones de rostros desconocidos detectados desde la base de datos y las renderiza en una página web. También marca las notificaciones como leídas y elimina las más antiguas si se requiere.
+
+index()
+Renderiza la página principal de la aplicación, mostrando el número de notificaciones no vistas (rostros desconocidos detectados).
+
+"""
+
 from flask import Flask, request, jsonify, render_template, flash, redirect, url_for
 from paho.mqtt.client import Client
 import cv2
