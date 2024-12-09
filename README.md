@@ -39,3 +39,40 @@ flask run --host=0.0.0.0
 
 Debe tenerse en cuenta la creacion del archivo **.env** en la carpeta raiz del proyecto de flask, que contenga 
 la URI de la base de datos dentro de una variable **DATABASE_URL**
+
+## Tablas de la base de datos
+
+Para obtener la URI es necesario crear una cuenta en https://aiven.io/ y luego crear una base de datos PostgreSQL dejando todo en default.
+Luego para crear las tablas, debe ejecutarse el siguiente código en google colab, o en alguna aplicación similar:
+```python
+!pip install opencv-python imgbeddings psycopg-binary
+!pip install huggingface-hub==0.25.1
+```
+```python
+# Conexión a la base de datos
+conn = psycopg2.connect("uri de la base de datos")
+
+# Crear un cursor para realizar operaciones en la base de datos
+cur = conn.cursor()
+
+# Ejecutar la extensión vector
+cur.execute("CREATE EXTENSION IF NOT EXISTS vector;")
+
+# Crear la tabla con embeddings
+cur.execute("""
+CREATE TABLE IF NOT EXISTS pictures (
+    picture TEXT PRIMARY KEY,
+    embedding VECTOR(768)
+);
+""")
+
+cur.execute("""
+CREATE TABLE IF NOT EXISTS pictures_log (
+    id SERIAL PRIMARY KEY,
+    picture TEXT NOT NULL,
+    timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    leido BOOLEAN DEFAULT FALSE
+);
+""")
+conn.commit()
+```
